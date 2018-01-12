@@ -23,9 +23,9 @@ GZ_REGISTER_SENSOR_PLUGIN(gazebo::GazeboRosImuSensor)
 
 gazebo::GazeboRosImuSensor::GazeboRosImuSensor(): SensorPlugin()
 {
-  accelerometer_data = math::Vector3(0, 0, 0);
-  gyroscope_data = math::Vector3(0, 0, 0);
-  orientation = math::Quaternion(1,0,0,0);
+  accelerometer_data = ignition::math::Vector3d(0, 0, 0);
+  gyroscope_data = ignition::math::Vector3d(0, 0, 0);
+  orientation = ignition::math::Quaterniond(1,0,0,0);
   seed=0;
   sensor=NULL;
 }
@@ -69,36 +69,36 @@ void gazebo::GazeboRosImuSensor::Load(gazebo::sensors::SensorPtr sensor_, sdf::E
 
   connection = gazebo::event::Events::ConnectWorldUpdateBegin(boost::bind(&GazeboRosImuSensor::UpdateChild, this, _1));
 
-  last_time = sensor->GetLastUpdateTime();
+  last_time = sensor->LastUpdateTime();
 }
 
 void gazebo::GazeboRosImuSensor::UpdateChild(const gazebo::common::UpdateInfo &/*_info*/)
 {
-  common::Time current_time = sensor->GetLastUpdateTime();
+  common::Time current_time = sensor->LastUpdateTime();
 
   if(update_rate>0 && (current_time-last_time).Double() < 1.0/update_rate) //update rate check
     return;
 
   if(imu_data_publisher.getNumSubscribers() > 0)
   {
-    orientation = offset.rot*sensor->GetOrientation(); //applying offsets to the orientation measurement
-    accelerometer_data = sensor->GetLinearAcceleration();
-    gyroscope_data = sensor->GetAngularVelocity();
+    orientation = offset.Rot()*sensor->Orientation(); //applying offsets to the orientation measurement
+    accelerometer_data = sensor->LinearAcceleration();
+    gyroscope_data = sensor->AngularVelocity();
 
     //Guassian noise is applied to all measurements
-    imu_msg.orientation.x = orientation.x + GuassianKernel(0,gaussian_noise);
-    imu_msg.orientation.y = orientation.y + GuassianKernel(0,gaussian_noise);
-    imu_msg.orientation.z = orientation.z + GuassianKernel(0,gaussian_noise);
-    imu_msg.orientation.w = orientation.w + GuassianKernel(0,gaussian_noise);
+    imu_msg.orientation.x = orientation.X() + GuassianKernel(0,gaussian_noise);
+    imu_msg.orientation.y = orientation.Y() + GuassianKernel(0,gaussian_noise);
+    imu_msg.orientation.z = orientation.Z() + GuassianKernel(0,gaussian_noise);
+    imu_msg.orientation.w = orientation.W() + GuassianKernel(0,gaussian_noise);
 
-    imu_msg.linear_acceleration.x = accelerometer_data.x + GuassianKernel(0,gaussian_noise);
-    imu_msg.linear_acceleration.y = accelerometer_data.y + GuassianKernel(0,gaussian_noise);
-    if(!this->compensate_gravity) accelerometer_data.z -= 9.8;
-    imu_msg.linear_acceleration.z = accelerometer_data.z + GuassianKernel(0,gaussian_noise);
+    imu_msg.linear_acceleration.x = accelerometer_data.X() + GuassianKernel(0,gaussian_noise);
+    imu_msg.linear_acceleration.y = accelerometer_data.Y() + GuassianKernel(0,gaussian_noise);
+    if(!this->compensate_gravity) accelerometer_data.Z() -= 9.8;
+    imu_msg.linear_acceleration.z = accelerometer_data.Z() + GuassianKernel(0,gaussian_noise);
 
-    imu_msg.angular_velocity.x = gyroscope_data.x + GuassianKernel(0,gaussian_noise);
-    imu_msg.angular_velocity.y = gyroscope_data.y + GuassianKernel(0,gaussian_noise);
-    imu_msg.angular_velocity.z = gyroscope_data.z + GuassianKernel(0,gaussian_noise);
+    imu_msg.angular_velocity.x = gyroscope_data.X() + GuassianKernel(0,gaussian_noise);
+    imu_msg.angular_velocity.y = gyroscope_data.Y() + GuassianKernel(0,gaussian_noise);
+    imu_msg.angular_velocity.z = gyroscope_data.Z() + GuassianKernel(0,gaussian_noise);
 
     //covariance is related to the Gaussian noise
     double gn2 = gaussian_noise*gaussian_noise;
@@ -152,7 +152,7 @@ bool gazebo::GazeboRosImuSensor::LoadParameters()
   }
   else
   {
-    std::string scoped_name = sensor->GetParentName();
+    std::string scoped_name = sensor->ParentName();
     std::size_t it = scoped_name.find("::");
 
     robot_namespace = "/" +scoped_name.substr(0,it)+"/";
@@ -210,25 +210,25 @@ bool gazebo::GazeboRosImuSensor::LoadParameters()
   //POSITION OFFSET, UNUSED
   if (sdf->HasElement("xyzOffset"))
   {
-    offset.pos =  sdf->Get<math::Vector3>("xyzOffset");
-    ROS_INFO_STREAM("<xyzOffset> set to: " << offset.pos[0] << ' ' << offset.pos[1] << ' ' << offset.pos[2]);
+    offset.Pos() =  sdf->Get<ignition::math::Vector3d>("xyzOffset");
+    ROS_INFO_STREAM("<xyzOffset> set to: " << offset.Pos()[0] << ' ' << offset.Pos()[1] << ' ' << offset.Pos()[2]);
   }
   else
   {
-    offset.pos = math::Vector3(0, 0, 0);
-    ROS_WARN_STREAM("missing <xyzOffset>, set to default: " << offset.pos[0] << ' ' << offset.pos[1] << ' ' << offset.pos[2]);
+    offset.Pos() = ignition::math::Vector3d(0, 0, 0);
+    ROS_WARN_STREAM("missing <xyzOffset>, set to default: " << offset.Pos()[0] << ' ' << offset.Pos()[1] << ' ' << offset.Pos()[2]);
   }
 
   //ORIENTATION OFFSET
   if (sdf->HasElement("rpyOffset"))
   {
-    offset.rot = math::Quaternion(sdf->Get<math::Vector3>("rpyOffset"));
-    ROS_INFO_STREAM("<rpyOffset> set to: " << offset.rot.GetRoll() << ' ' << offset.rot.GetPitch() << ' ' << offset.rot.GetYaw());
+    offset.Rot() = ignition::math::Quaterniond(sdf->Get<ignition::math::Vector3d>("rpyOffset"));
+    ROS_INFO_STREAM("<rpyOffset> set to: " << offset.Rot().Roll() << ' ' << offset.Rot().Pitch() << ' ' << offset.Rot().Yaw());
   }
   else
   {
-    offset.rot.SetToIdentity();
-    ROS_WARN_STREAM("missing <rpyOffset>, set to default: " << offset.rot.GetRoll() << ' ' << offset.rot.GetPitch() << ' ' << offset.rot.GetYaw());
+    offset.Rot() = ignition::math::Quaterniond::Identity;
+    ROS_WARN_STREAM("missing <rpyOffset>, set to default: " << offset.Rot().Roll() << ' ' << offset.Rot().Pitch() << ' ' << offset.Rot().Yaw());
   }
 
   return true;

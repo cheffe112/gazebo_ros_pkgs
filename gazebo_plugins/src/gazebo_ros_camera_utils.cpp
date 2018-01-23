@@ -145,7 +145,7 @@ void GazeboRosCameraUtils::Load(sensors::SensorPtr _parent,
   if (!this->sdf->HasElement("frameName"))
     ROS_DEBUG("Camera plugin missing <frameName>, defaults to /world");
   else
-    this->frame_name_ = this->sdf->Get<std::string>("frameName");
+    this->frame_name_ = this->sdf->Get<std::string>("frameName") + _camera_name_suffix;
 
   if (!this->sdf->HasElement("updateRate"))
   {
